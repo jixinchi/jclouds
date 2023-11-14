@@ -28,6 +28,7 @@ import static com.google.common.collect.Sets.newTreeSet;
 import static org.jclouds.blobstore.options.ListContainerOptions.Builder.recursive;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -730,8 +731,14 @@ public final class LocalBlobStore implements BlobStore {
       Payload payload;
       try {
          InputStream is = blob.getPayload().openStream();
-         blob.resetPayload(/*release=*/ false);
-         payload = new InputStreamPayload(is);
+         if (is instanceof FileInputStream) {
+            // except for FileInputStream since large MPU can open too many fds
+            is.close();
+            payload = blob.getPayload();
+         } else {
+            blob.resetPayload(/*release=*/ false);
+            payload = new InputStreamPayload(is);
+         }
       } catch (IOException ioe) {
          throw new RuntimeException(ioe);
       }
